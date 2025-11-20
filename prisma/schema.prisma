@@ -1,0 +1,361 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+//
+// USERS & ROLES
+//
+
+model Role {
+  id   String @id @default(uuid())
+  name String @unique
+
+  users User[]
+
+  permissions RolePermission[]
+}
+
+
+model Permission {
+  id          String           @id @default(uuid())
+  name        String           @unique
+  description String?
+
+  roles RolePermission[]
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id])
+  permission Permission @relation(fields: [permissionId], references: [id])
+
+  @@id([roleId, permissionId])
+}
+
+
+model User {
+  id        String    @id @default(uuid())
+  name      String
+  email     String    @unique
+  password  String
+  roleId    String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  role Role @relation(fields: [roleId], references: [id])
+
+  transactions Transaction[]
+  seatLocks    SeatLock[]
+}
+
+//
+// MOVIES & GENRES & DETAILS
+//
+
+model MovieStatus {
+  id     String @id @default(uuid())
+  status String @unique
+
+  movies Movie[]
+}
+
+model MovieRating {
+  id     String @id @default(uuid())
+  rating String @unique
+
+  movies Movie[]
+}
+
+model Movie {
+  id            String  @id @default(uuid())
+  title         String
+  tagline       String?
+  overview      String?
+  posterUrl     String?
+  backdropUrl   String?
+  trailerUrl    String?
+  duration      Int
+  popularity    Int?
+  movieStatusId String
+  movieRatingId String
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  movieStatus MovieStatus @relation(fields: [movieStatusId], references: [id])
+  movieRating MovieRating @relation(fields: [movieRatingId], references: [id])
+
+  genreMovie           GenreMovie[]
+  seatPricingOverrides SeatPricingOverride[]
+  showtimes            Showtime[]
+  transactions         Transaction[]
+}
+
+model MovieGenre {
+  id    String @id @default(uuid())
+  genre String @unique
+
+  genreMovie GenreMovie[]
+}
+
+model GenreMovie {
+  movieId      String
+  movieGenreId String
+
+  movie      Movie      @relation(fields: [movieId], references: [id])
+  movieGenre MovieGenre @relation(fields: [movieGenreId], references: [id])
+
+  @@id([movieId, movieGenreId])
+}
+
+//
+// CINEMA STRUCTURE
+//
+
+model Cinema {
+  id        String    @id @default(uuid())
+  name      String
+  logoUrl   String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  theaters  Theater[]
+  seatTypes SeatType[]
+}
+
+model Theater {
+  id        String   @id @default(uuid())
+  name      String
+  address   String
+  latitude  Decimal?
+  longitude Decimal?
+  cinemaId  String
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  cinema               Cinema                @relation(fields: [cinemaId], references: [id])
+  studios              Studio[]
+  seatPricings         SeatPricing[]
+  seatPricingOverrides SeatPricingOverride[]
+  showtimes            Showtime[]
+}
+
+model Studio {
+  id        String @id @default(uuid())
+  name      String
+  theaterId String
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  theater   Theater    @relation(fields: [theaterId], references: [id])
+  seats     Seat[]
+  showtimes Showtime[]
+}
+
+//
+// SEATS & TYPES
+//
+
+model SeatType {
+  id       String @id @default(uuid())
+  name     String
+  cinemaId String
+
+  cinema Cinema @relation(fields: [cinemaId], references: [id])
+
+  seats Seat[]
+
+  seatPricings         SeatPricing[]
+  seatPricingOverrides SeatPricingOverride[]
+  transactionItems     TransactionItem[]
+
+  @@unique([name, cinemaId])
+}
+
+model Seat {
+  id         String  @id @default(uuid())
+  row        String
+  number     Int
+  active     Boolean @default(true)
+  studioId   String
+  seatTypeId String
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  studio   Studio   @relation(fields: [studioId], references: [id])
+  seatType SeatType @relation(fields: [seatTypeId], references: [id])
+
+  transactionItems TransactionItem[]
+  seatLocks        SeatLock[]
+
+  @@unique([studioId, row, number])
+}
+
+//
+// SEAT PRICING
+//
+
+model SeatPricing {
+  id         String @id @default(uuid())
+  price      BigInt
+  dayType    String
+  seatTypeId String
+  theaterId  String
+
+  seatType SeatType @relation(fields: [seatTypeId], references: [id])
+  theater  Theater  @relation(fields: [theaterId], references: [id])
+
+  @@unique([seatTypeId, theaterId, dayType])
+}
+
+model SeatPricingOverride {
+  id         String  @id @default(uuid())
+  price      BigInt
+  notes      String?
+  movieId    String
+  seatTypeId String
+  theaterId  String
+
+  movie    Movie    @relation(fields: [movieId], references: [id])
+  seatType SeatType @relation(fields: [seatTypeId], references: [id])
+  theater  Theater  @relation(fields: [theaterId], references: [id])
+
+  @@unique([movieId, seatTypeId, theaterId])
+}
+
+//
+// SHOWTIMES
+//
+
+model Showtime {
+  id        String   @id @default(uuid())
+  status    Boolean  @default(true)
+  time      DateTime
+  expiredAt DateTime
+  movieId   String
+  studioId  String
+  theaterId String
+
+  movie   Movie   @relation(fields: [movieId], references: [id])
+  studio  Studio  @relation(fields: [studioId], references: [id])
+  theater Theater @relation(fields: [theaterId], references: [id])
+
+  transactions Transaction[]
+  seatLocks    SeatLock[]
+
+  @@unique([movieId, studioId, time])
+}
+
+//
+// PAYMENTS
+//
+
+model PaymentMethodType {
+  id   String @id @default(uuid())
+  name String @unique
+
+  paymentMethods PaymentMethod[]
+}
+
+model PaymentMethod {
+  id                  String  @id @default(uuid())
+  code                String  @unique
+  name                String
+  logoUrl             String?
+  active              Boolean @default(true)
+  paymentMethodTypeId String
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  paymentMethodType PaymentMethodType @relation(fields: [paymentMethodTypeId], references: [id])
+
+  transactions Transaction[]
+}
+
+//
+// TRANSACTIONS
+//
+
+model Transaction {
+  id              String    @id @default(uuid())
+  status          String
+  externalRef     String?   @unique
+  invoiceNumber   String?
+  amount          BigInt
+  expiredAt       DateTime
+  paidAt          DateTime?
+  paymentMethodId String
+  showtimeId      String
+  userId          String
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  paymentMethod PaymentMethod @relation(fields: [paymentMethodId], references: [id])
+  showtime      Showtime      @relation(fields: [showtimeId], references: [id])
+  user          User          @relation(fields: [userId], references: [id])
+
+  items   TransactionItem[]
+  movie   Movie?            @relation(fields: [movieId], references: [id])
+  movieId String?
+}
+
+model TransactionItem {
+  id            String @id @default(uuid())
+  price         BigInt
+  transactionId String
+  seatId        String
+  seatTypeId    String
+
+  transaction Transaction @relation(fields: [transactionId], references: [id])
+  seat        Seat        @relation(fields: [seatId], references: [id])
+  seatType    SeatType    @relation(fields: [seatTypeId], references: [id])
+}
+
+//
+// SEAT LOCKS (soft delete enabled)
+//
+
+model SeatLock {
+  id         String   @id @default(uuid())
+  seatId     String
+  showtimeId String
+  userId     String
+  lockedAt   DateTime
+  expiresAt  DateTime
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  seat     Seat     @relation(fields: [seatId], references: [id])
+  showtime Showtime @relation(fields: [showtimeId], references: [id])
+  user     User     @relation(fields: [userId], references: [id])
+
+  @@unique([seatId, showtimeId])
+}
