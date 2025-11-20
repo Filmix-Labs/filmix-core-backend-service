@@ -1,6 +1,8 @@
 // prisma/seeders/rolePermissions.ts
 
-export default async function seedRolePermissions(prisma) {
+import { PrismaClient } from '@prisma/client';
+
+export default async function seedRolePermissions(prisma: PrismaClient) {
   console.log('→ Seeding role permissions...');
 
   const roles = await prisma.role.findMany();
@@ -8,7 +10,7 @@ export default async function seedRolePermissions(prisma) {
 
   const permNames = permissions.map((p) => p.name);
 
-  const expand = (pattern) => {
+  const expand = (pattern: string) => {
     if (pattern === '*') return permNames;
     if (pattern.endsWith('.*'))
       return permNames.filter((p) => p.startsWith(pattern.replace('.*', '.')));

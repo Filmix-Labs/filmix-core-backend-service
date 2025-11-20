@@ -1,13 +1,20 @@
 // prisma/seeders/users.ts
+import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
 
-export default async function seedUsers(prisma) {
+export default async function seedUsers(prisma: PrismaClient) {
   console.log('→ Seeding users...');
 
   const superAdminRole = await prisma.role.findUnique({
     where: { name: 'super_admin' },
   });
   const staffRole = await prisma.role.findUnique({ where: { name: 'staff' } });
+
+  if (!superAdminRole || !staffRole) {
+    throw new Error(
+      'Required roles not found. Please run role seeder before user seeder.',
+    );
+  }
 
   const adminPass = await bcrypt.hash(
     process.env.SEED_ADMIN_PASSWORD || 'admin123!',

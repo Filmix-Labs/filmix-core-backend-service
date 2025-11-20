@@ -1,16 +1,23 @@
-// prisma/seeders/permissions.ts
-
+import { PrismaClient } from '@prisma/client';
 import { modules } from './modules';
 
-export default async function seedPermissions(prisma) {
+type ModuleConfig = {
+  actions: string[];
+  description: string;
+  actionDescriptions: Record<string, string>;
+};
+
+export default async function seedPermissions(prisma: PrismaClient) {
   console.log('→ Seeding permissions...');
 
-  const permissions = Object.entries(modules).flatMap(([module, config]) =>
-    config.actions.map((action) => ({
-      name: `${module}.${action}`,
-      description: config.actionDescriptions[action],
-    })),
-  );
+  const permissions = Object.entries(modules).flatMap(([moduleName, cfg]) => {
+    const config = cfg as ModuleConfig;
+
+    return config.actions.map((action) => ({
+      name: `${moduleName}.${action}`,
+      description: config.actionDescriptions[action] ?? '',
+    }));
+  });
 
   for (const perm of permissions) {
     await prisma.permission.upsert({
@@ -19,4 +26,6 @@ export default async function seedPermissions(prisma) {
       create: perm,
     });
   }
+
+  console.log(`✔ Seeded ${permissions.length} permissions`);
 }

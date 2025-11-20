@@ -1,5 +1,7 @@
 // prisma/seeders/roles.ts
 
+import { PrismaClient } from '@prisma/client';
+
 const roles = [
   { name: 'super_admin' },
   { name: 'cinema_manager' },
@@ -7,7 +9,7 @@ const roles = [
   { name: 'user' },
 ];
 
-export default async function seedRoles(prisma) {
+export default async function seedRoles(prisma: PrismaClient) {
   console.log('→ Seeding roles...');
 
   for (const r of roles) {
