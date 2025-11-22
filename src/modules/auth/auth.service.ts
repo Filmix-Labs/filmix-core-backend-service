@@ -31,21 +31,18 @@ export class AuthService {
    * Register new user
    */
   async register(dto: RegisterDto) {
-    const role = await this.prismaService.role.findFirst({
-      where: { name: 'User' },
-    });
-
-    if (!role) {
-      throw new InternalServerErrorException('Default role not found');
-    }
-
     const existingUser = await this.prismaService.user.findUnique({
       where: { email: dto.email.toLowerCase() },
     });
 
-    if (existingUser) {
+    if (existingUser)
       throw new BadRequestException('Email is already registered');
-    }
+
+    const role = await this.prismaService.role.findFirst({
+      where: { name: 'user' },
+    });
+
+    if (!role) throw new InternalServerErrorException('Default role not found');
 
     const hashedPassword = await bcrypt.hash(dto.password, 12);
 
@@ -65,20 +62,22 @@ export class AuthService {
    * Login user
    */
   async login(dto: LoginDto) {
+    console.time('login.validateUser');
     const user = await this.validateUser(dto.email, dto.password);
+    console.timeEnd('login.validateUser');
 
-    if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
+    if (!user) throw new UnauthorizedException('Invalid credentials');
 
     const payload: AuthPayload = {
       sub: user.id,
     };
 
+    console.time('login.signJwt');
     const accessToken = await this.jwtService.signAsync<AuthPayload>(payload, {
       secret: this.jwtConfiguration.secret,
       expiresIn: this.jwtConfiguration.expiresIn,
     });
+    console.timeEnd('login.signJwt');
 
     return {
       accessToken,
@@ -95,16 +94,20 @@ export class AuthService {
    * Validate incoming login credentials
    */
   async validateUser(email: string, password: string) {
+    console.time('validateUser.findUnique');
     const user = await this.prismaService.user.findUnique({
       where: { email: email.toLowerCase() },
       include: {
         role: true,
       },
     });
+    console.timeEnd('validateUser.findUnique');
 
     if (!user) return null;
 
+    console.time('validateUser.compare');
     const isValidPassword = await bcrypt.compare(password, user.password);
+    console.timeEnd('validateUser.compare');
     if (!isValidPassword) return null;
 
     return user;
